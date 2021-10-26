@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <memory.h>
 #include <math.h>
+#include <map>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -46,6 +47,10 @@ double Binomial(int n, int s)
 
 bool compare_by_value(const pair<float, int>& p1, const pair<float, int>& p2) {
     return p1.first < p2.first;
+}
+
+float distance_formula(float x1, float y1, float z1, float x2, float y2, float z2) {
+    return sqrt( (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2) );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -269,12 +274,76 @@ bool TargaImage::Quant_Uniform()
 bool TargaImage::Quant_Populosity()
 {
     if (data) {
+        // Step down to 32 colors R G B
         for (int i = 0; i < height * width; i++) {
-            data[i * 4] = (data[i * 4] / 8) * 8;
-            data[i * 4 + 1] = (data[i * 4 + 1] / 8) * 8;
-            data[i * 4 + 2] = (data[i * 4 + 2] / 8) * 8;
+            for (int j = 0; j < 3; j++) {
+                data[i * 4 + j] = (data[i * 4 + j] / 8) * 8;
+            }
+        }
+        // Create a map of colors to counts
+        map<int, int> hist;
+
+        for (int i = 0; i < height * width; i++) {
+            int key = data[i * 4] * 1000000 + data[i * 4 + 1] * 1000 + data[i * 4 + 2];
+            if ( hist.find(key) == hist.end() ) {
+                hist[key] = 1;
+             }
+            else {
+                hist[key]++;
+            }
         }
 
+        // Find most popular colors from the map
+        // create an empty vector of pairs
+        vector<pair<int, int>> hist_vec;
+
+        // copy key-value pairs from the map to the vector
+        copy(hist.begin(), hist.end(),
+             back_inserter<std::vector<pair<int,int>>>(hist_vec)
+        );
+
+        // sort the vector by increasing the order of its pair's second value
+        // if the second value is equal, order by the pair's first value
+        sort(hist_vec.begin(), hist_vec.end(),
+            [](const pair<int,int>& l, const pair<int,int>& r)
+            {
+                if (l.second != r.second) {
+                    return l.second > r.second;
+                }
+
+                return l.first > r.first;
+            });
+
+        int colors[256];
+
+        for (int i = 0; i < 256; i++) {
+            colors[i] = hist_vec[i].first;
+        }
+
+        for (int i = 0; i < height * width; i++) {
+            int r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2], min_r, min_g, min_b;
+            float current_min_distance = 100000.;
+            for (int j = 0; j < 256; j++) {
+                //cout << colors[j] << endl;
+                int t_r = colors[j] / 1000000;
+                int t_g = (colors[j] % 1000000) / 1000;
+                int t_b = (colors[j] % 1000000) % 1000;
+                //cout << t_r << " " << t_g << " " << t_b << endl;
+                float distance = distance_formula(r, g, b, t_r, t_g, t_b);
+                if (distance < current_min_distance) {
+                    min_r = t_r;
+                    min_g = t_g;
+                    min_b = t_b;
+                    current_min_distance = distance;
+                }
+            }
+            /*cout << "Set:" << endl;
+            cout << r << " " << g << " " << b << endl;
+            cout << min_r << " " << min_g << " " << min_b << endl;*/
+            data[i * 4] = min_r;
+            data[i * 4 + 1] = min_g;
+            data[i * 4 + 2] = min_b;
+        }
     }
     else {
         ClearToBlack();
@@ -434,8 +503,20 @@ bool TargaImage::Comp_Over(TargaImage* pImage)
         return false;
     }
 
-    ClearToBlack();
-    return false;
+    if (data) {
+        for (int i = 0; i < height * width; i++) {
+            float alpha_f = data[i * 4 + 3] / 255.;
+            for (int j = 0; j < 4; j++) {
+                data[i * 4 + j] = (data[i * 4 + j] + (1.0 - alpha_f) * pImage->data[i * 4 + j]);
+            }
+        }
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
+
+
 }// Comp_Over
 
 
@@ -453,8 +534,18 @@ bool TargaImage::Comp_In(TargaImage* pImage)
         return false;
     }
 
-    ClearToBlack();
-    return false;
+    if (data) {
+        for (int i = 0; i < height * width; i++) {
+            float alpha_g = pImage->data[i * 4 + 3] / 255.;
+            for (int j = 0; j < 4; j++) {
+                data[i * 4 + j] = alpha_g*data[i * 4 + j];
+            }
+        }
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
 }// Comp_In
 
 
@@ -472,8 +563,19 @@ bool TargaImage::Comp_Out(TargaImage* pImage)
         return false;
     }
 
-    ClearToBlack();
-    return false;
+    if (data) {
+        for (int i = 0; i < height * width; i++) {
+            float alpha_g = pImage->data[i * 4 + 3] / 255.;
+            for (int j = 0; j < 4; j++) {
+                data[i * 4 + j] = (1 - alpha_g) * data[i * 4 + j];
+            }
+        }
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
+
 }// Comp_Out
 
 
@@ -491,8 +593,19 @@ bool TargaImage::Comp_Atop(TargaImage* pImage)
         return false;
     }
 
-    ClearToBlack();
-    return false;
+    if (data) {
+        for (int i = 0; i < height * width; i++) {
+            float alpha_f = data[i * 4 + 3] / 255.;
+            float alpha_g = pImage->data[i * 4 + 3] / 255.;
+            for (int j = 0; j < 4; j++) {
+                data[i * 4 + j] = alpha_g * data[i * 4 + j] + (1.0 - alpha_f) * pImage->data[i * 4 + j];
+            }
+        }
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
 }// Comp_Atop
 
 
@@ -510,8 +623,21 @@ bool TargaImage::Comp_Xor(TargaImage* pImage)
         return false;
     }
 
-    ClearToBlack();
-    return false;
+    if (data) {
+        for (int i = 0; i < height * width; i++) {
+            float alpha_f = data[i * 4 + 3] / 255.;
+            float alpha_g = pImage->data[i * 4 + 3] / 255.;
+            for (int j = 0; j < 4; j++) {
+                data[i * 4 + j] = (1.0 - alpha_g) * data[i * 4 + j] + (1.0 - alpha_f) * pImage->data[i * 4 + j];
+            }
+        }
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
+
+
 }// Comp_Xor
 
 
@@ -557,8 +683,34 @@ bool TargaImage::Difference(TargaImage* pImage)
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Filter_Box()
 {
-    ClearToBlack();
-    return false;
+  
+     if (data) {
+         for (int i = 2; i < height - 2; i++) {
+             for (int j = 2; j < width - 2; j++) {
+
+                 int sum_r = 0;
+                 int sum_g = 0;
+                 int sum_b = 0;
+
+                 for (int k = -2; k < 3; k++) {
+                     for (int l = -2; l < 3; l++) {
+                         sum_r += data[4 * (j + l + (i + k) * height)];
+                         sum_g += data[4 * (j + l + (i + k) * height) + 1];
+                         sum_b += data[4 * (j + l + (i + k) * height) + 2];
+                     }
+                 }
+
+                 data[4 * (j + i * height)] = sum_r / 25;
+                 data[4 * (j + i * height) + 1] = sum_g / 25;
+                 data[4 * (j + i * height) + 2] = sum_b / 25;
+             }
+         }
+        return true;
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
 }// Filter_Box
 
 
