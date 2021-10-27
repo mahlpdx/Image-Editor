@@ -54,6 +54,7 @@ class TargaImage
 
         bool Difference(TargaImage* pImage);
 
+        bool Filter_5x5(float arr[5][5]);
         bool Filter_Box();
         bool Filter_Bartlett();
         bool Filter_Gaussian();

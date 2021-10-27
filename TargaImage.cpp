@@ -394,7 +394,7 @@ bool TargaImage::Dither_Random()
         vector<pair<float, int>> norm_data = Normalize_Grayscale(data, width * height);
         for (int i = 0; i < norm_data.size(); i++) {
             float rand_val = 0.4 * (((float) rand() / RAND_MAX) - 0.5);
-            if (norm_data[i].first + rand_val < 0.5) {
+            if ((norm_data[i].first + rand_val) < 0.5) {
                 data[4 * i] = data[4 * i + 1] = data[4 * i + 2] = 0;
             }
             else {
@@ -675,6 +675,62 @@ bool TargaImage::Difference(TargaImage* pImage)
     return true;
 }// Difference
 
+bool TargaImage::Filter_5x5(float filter[5][5]){
+
+    unsigned char* tmp = new unsigned char[width * height * 4];
+
+    if (data) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                float sum_r = 0., sum_g = 0., sum_b = 0.;
+                // k represents moving through the matrix
+                for (int k = -2; k < 3; k++) {
+                    for (int l = -2; l < 3; l++) {
+                        int height_idx;
+                        int width_idx;
+                        // Handling edge cases with if statements
+                        if (i + k < 0) {
+                            // In this case k must be <= -1
+                            height_idx = -1 * k;
+                        }
+                        else if (i + k >= height) {
+                            // In this case k must be >= 1
+                            height_idx = height - k;
+                        }
+                        else {
+                            height_idx = i + k;
+                        }
+
+                        if (j + l < 0) {
+                            // In this case l must be <= -1
+                            width_idx = -1 * l;
+                        }
+                        else if (j + l >= width) {
+                            // In this case l but >= 1
+                            width_idx = width - l;
+                        }
+                        else {
+                            width_idx = j + l;
+                        }
+
+                        sum_r += data[(height_idx * width + width_idx) * 4] * filter[k + 2][l + 2];
+                        sum_g += data[(height_idx * width + width_idx) * 4 + 1] * filter[k + 2][l + 2];
+                        sum_b += data[(height_idx * width + width_idx) * 4 + 2] * filter[k + 2][l + 2];
+                    }
+                }
+                data[(i * width + j) * 4] = (unsigned char) round(sum_r);
+                data[(i * width + j) * 4 + 1] = (unsigned char) round(sum_g);
+                data[(i * width + j) * 4 + 2] = (unsigned char) round(sum_b);
+            }
+        }
+        return true;
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -683,29 +739,16 @@ bool TargaImage::Difference(TargaImage* pImage)
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Filter_Box()
 {
-  
-     if (data) {
-         for (int i = 2; i < height - 2; i++) {
-             for (int j = 2; j < width - 2; j++) {
+    float filter[5][5] = {
+        {0.04, 0.04, 0.04, 0.04, 0.04},
+        {0.04, 0.04, 0.04, 0.04, 0.04},
+        {0.04, 0.04, 0.04, 0.04, 0.04},
+        {0.04, 0.04, 0.04, 0.04, 0.04},
+        {0.04, 0.04, 0.04, 0.04, 0.04}
+    };
 
-                 int sum_r = 0;
-                 int sum_g = 0;
-                 int sum_b = 0;
-
-                 for (int k = -2; k < 3; k++) {
-                     for (int l = -2; l < 3; l++) {
-                         sum_r += data[4 * (j + l + (i + k) * height)];
-                         sum_g += data[4 * (j + l + (i + k) * height) + 1];
-                         sum_b += data[4 * (j + l + (i + k) * height) + 2];
-                     }
-                 }
-
-                 data[4 * (j + i * height)] = sum_r / 25;
-                 data[4 * (j + i * height) + 1] = sum_g / 25;
-                 data[4 * (j + i * height) + 2] = sum_b / 25;
-             }
-         }
-        return true;
+    if (data) {
+        return TargaImage::Filter_5x5(filter);
     }
     else {
         ClearToBlack();
@@ -722,8 +765,21 @@ bool TargaImage::Filter_Box()
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Filter_Bartlett()
 {
-    ClearToBlack();
-    return false;
+    float filter[5][5] = {
+        {1. / 81., 2. / 81., 3. / 81., 2. / 81., 1. / 81.},
+        {2. / 81., 4. / 81., 6. / 81., 4. / 81., 2. / 81.},
+        {3. / 81., 6. / 81., 9. / 81., 6. / 81., 3. / 81.},
+        {2. / 81., 4. / 81., 6. / 81., 4. / 81., 2. / 81.},
+        {1. / 81., 2. / 81., 3. / 81., 2. / 81., 1. / 81.}
+    };
+
+    if (data) {
+        return TargaImage::Filter_5x5(filter);
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
 }// Filter_Bartlett
 
 
@@ -735,8 +791,22 @@ bool TargaImage::Filter_Bartlett()
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Filter_Gaussian()
 {
-    ClearToBlack();
-    return false;
+    float filter[5][5] = {
+        {1. / 256., 4. / 256., 6. / 256., 4. / 256., 1. / 256.},
+        {4. / 256., 16. / 256., 24. / 256., 16. / 256., 4. / 256.},
+        {6. / 256., 24. / 256., 36. / 256., 24. / 256., 6. / 256.},
+        {4. / 256., 16. / 256., 24. / 256., 16. / 256., 4. / 256.},
+        {1. / 256., 4. / 256., 6. / 256., 4. / 256., 1. / 256.},
+    };
+
+    if (data) {
+        return TargaImage::Filter_5x5(filter);
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
+   
 }// Filter_Gaussian
 
 ///////////////////////////////////////////////////////////////////////////////
