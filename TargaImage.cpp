@@ -393,7 +393,7 @@ bool TargaImage::Dither_Random()
         To_Grayscale();
         vector<pair<float, int>> norm_data = Normalize_Grayscale(data, width * height);
         for (int i = 0; i < norm_data.size(); i++) {
-            float rand_val = 0.4 * (((float) rand() / RAND_MAX) - 0.5);
+            float rand_val = 0.4 * (((float)rand() / RAND_MAX) - 0.5);
             if ((norm_data[i].first + rand_val) < 0.5) {
                 data[4 * i] = data[4 * i + 1] = data[4 * i + 2] = 0;
             }
@@ -448,7 +448,7 @@ bool TargaImage::Dither_Bright()
         sort(norm_data.begin(), norm_data.end(), &compare_by_value);
 
         for (int i = 0; i < norm_data.size(); i++) {
-            if ( i <= (1-average_intensity) * norm_data.size()) {
+            if (i <= (1 - average_intensity) * norm_data.size()) {
                 data[4 * norm_data[i].second] = data[4 * norm_data[i].second + 1] = data[4 * norm_data[i].second + 2] = 0;
             }
             else {
@@ -470,8 +470,29 @@ bool TargaImage::Dither_Bright()
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Dither_Cluster()
 {
-    ClearToBlack();
-    return false;
+
+    float mask[4][4] = {
+        {0.7500,  0.3750, 0.6250, 0.2500},
+        {0.0625, 1.0000, 0.8750,  0.4375 },
+        {0.5000, 0.8125, 0.9375,  0.1250 },
+        {0.1875, 0.5625, 0.3125,  0.6875 },
+    };
+    if (data) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                if ( data[(i * width + j) * 4] < mask[i % 4][j % 4] * 255.) {
+                    data[(i * width + j) * 4] = data[(i * width + j) * 4 + 1] = data[(i * width + j) * 4 + 2] = 0;
+                }
+                else {
+                    data[(i * width + j) * 4] = data[(i * width + j) * 4 + 1] = data[(i * width + j) * 4 + 2] = 255;
+                }
+            }
+        }
+    }
+    else {
+        ClearToBlack();
+        return false;
+    }
 }// Dither_Cluster
 
 
