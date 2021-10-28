@@ -873,40 +873,8 @@ bool TargaImage::Filter_Gaussian_N( unsigned int N )
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Filter_Edge()
 {
-        
-        if (data) {
-
-            float filter[5][5] = {
-            {-1. / 256., -4. / 256., -6. / 256., -4. / 256., -1. / 256.},
-            {-4. / 256., -16. / 256., -24. / 256., -16. / 256., -4. / 256.},
-            {-6. / 256., -24. / 256., 220. / 256., -24. / 256., -6. / 256.},
-            {-4. / 256., -16. / 256., -24. / 256., -16. / 256., -4. / 256.},
-            {-1. / 256., -4. / 256., -6. / 256., -4. / 256., -1. / 256.},
-            };
-
-            unsigned char* original_data = new unsigned char[width * height * 4];
-            memcpy(original_data, data, sizeof(unsigned char) * width * height * 4);
-
-            TargaImage::Filter_5x5(filter);
-
-            // Clamping values
-            for (int i = 0; i < width * height; i++) {
-                for (int j = 0; j <= 2; j++) {
-                    if (data[4 * i + j] > 255) {
-                        data[4 * i + j] = 255;
-                    }
-                    else if (data[4 * i + j] < 0) {
-                        data[4 * i + j] = 0;
-                    }
-                }
-            }
-            return true;
-        }
-        else {
-            ClearToBlack();
-            return false;
-        }
-
+     ClearToBlack();
+     return false;
 }// Filter_Edge
 
 
