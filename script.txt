@@ -30,11 +30,6 @@ load church.tga
 dither-rand
 save church-dither-rand.tga
 
-
-load church.tga
-dither-order
-save church-dither-order.tga
-
 load church.tga
 dither-cluster
 save church-dither-cluster.tga

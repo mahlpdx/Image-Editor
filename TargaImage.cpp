@@ -322,14 +322,16 @@ bool TargaImage::Quant_Populosity()
 
         for (int i = 0; i < height * width; i++) {
             int r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2], min_r, min_g, min_b;
+
             float current_min_distance = 100000.;
+
             for (int j = 0; j < 256; j++) {
-                //cout << colors[j] << endl;
+
                 int t_r = colors[j] / 1000000;
                 int t_g = (colors[j] % 1000000) / 1000;
                 int t_b = (colors[j] % 1000000) % 1000;
-                //cout << t_r << " " << t_g << " " << t_b << endl;
                 float distance = distance_formula(r, g, b, t_r, t_g, t_b);
+
                 if (distance < current_min_distance) {
                     min_r = t_r;
                     min_g = t_g;
@@ -337,9 +339,7 @@ bool TargaImage::Quant_Populosity()
                     current_min_distance = distance;
                 }
             }
-            /*cout << "Set:" << endl;
-            cout << r << " " << g << " " << b << endl;
-            cout << min_r << " " << min_g << " " << min_b << endl;*/
+
             data[i * 4] = min_r;
             data[i * 4 + 1] = min_g;
             data[i * 4 + 2] = min_b;
@@ -394,7 +394,7 @@ bool TargaImage::Dither_Random()
         vector<pair<float, int>> norm_data = Normalize_Grayscale(data, width * height);
         for (int i = 0; i < norm_data.size(); i++) {
             float rand_val = 0.4 * (((float)rand() / RAND_MAX) - 0.5);
-            if ((norm_data[i].first + rand_val) < 0.5) {
+            if (( norm_data[i].first + rand_val ) < 0.5) {
                 data[4 * i] = data[4 * i + 1] = data[4 * i + 2] = 0;
             }
             else {
@@ -472,10 +472,10 @@ bool TargaImage::Dither_Cluster()
 {
 
     float mask[4][4] = {
-        {0.7500,  0.3750, 0.6250, 0.2500},
-        {0.0625, 1.0000, 0.8750,  0.4375 },
-        {0.5000, 0.8125, 0.9375,  0.1250 },
-        {0.1875, 0.5625, 0.3125,  0.6875 },
+        {0.7500, 0.3750, 0.6250, 0.2500 },
+        {0.0625, 1.0000, 0.8750, 0.4375 },
+        {0.5000, 0.8125, 0.9375, 0.1250 },
+        {0.1875, 0.5625, 0.3125, 0.6875 },
     };
     if (data) {
         for (int i = 0; i < height; i++) {
@@ -739,9 +739,29 @@ bool TargaImage::Filter_5x5(float filter[5][5]){
                         sum_b += data[(height_idx * width + width_idx) * 4 + 2] * filter[k + 2][l + 2];
                     }
                 }
-                data[(i * width + j) * 4] = (unsigned char) round(sum_r);
-                data[(i * width + j) * 4 + 1] = (unsigned char) round(sum_g);
-                data[(i * width + j) * 4 + 2] = (unsigned char) round(sum_b);
+                tmp[(i * width + j) * 4] = (unsigned char) round(sum_r);
+                tmp[(i * width + j) * 4 + 1] = (unsigned char) round(sum_g);
+                tmp[(i * width + j) * 4 + 2] = (unsigned char) round(sum_b);
+            }
+        }
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                    data[(i * width + j) * 4] = tmp[(i * width + j) * 4];
+                    data[(i * width + j) * 4 + 1] = tmp[(i * width + j) * 4 + 1];
+                    data[(i * width + j) * 4 + 2] = tmp[(i * width + j) * 4 + 2];
+            }
+        }
+        delete[] tmp;
+
+        // Clamping values
+        for (int i = 0; i < width * height; i++) {
+            for (int j = 0; j <= 2; j++) {
+                if (data[4 * i + j] > 255) {
+                    data[4 * i + j] = 255;
+                }
+                else if (data[4 * i + j] < 0) {
+                    data[4 * i + j] = 0;
+                }
             }
         }
         return true;
@@ -793,6 +813,7 @@ bool TargaImage::Filter_Bartlett()
         {2. / 81., 4. / 81., 6. / 81., 4. / 81., 2. / 81.},
         {1. / 81., 2. / 81., 3. / 81., 2. / 81., 1. / 81.}
     };
+
 
     if (data) {
         return TargaImage::Filter_5x5(filter);
@@ -852,8 +873,40 @@ bool TargaImage::Filter_Gaussian_N( unsigned int N )
 ///////////////////////////////////////////////////////////////////////////////
 bool TargaImage::Filter_Edge()
 {
-    ClearToBlack();
-    return false;
+        
+        if (data) {
+
+            float filter[5][5] = {
+            {-1. / 256., -4. / 256., -6. / 256., -4. / 256., -1. / 256.},
+            {-4. / 256., -16. / 256., -24. / 256., -16. / 256., -4. / 256.},
+            {-6. / 256., -24. / 256., 220. / 256., -24. / 256., -6. / 256.},
+            {-4. / 256., -16. / 256., -24. / 256., -16. / 256., -4. / 256.},
+            {-1. / 256., -4. / 256., -6. / 256., -4. / 256., -1. / 256.},
+            };
+
+            unsigned char* original_data = new unsigned char[width * height * 4];
+            memcpy(original_data, data, sizeof(unsigned char) * width * height * 4);
+
+            TargaImage::Filter_5x5(filter);
+
+            // Clamping values
+            for (int i = 0; i < width * height; i++) {
+                for (int j = 0; j <= 2; j++) {
+                    if (data[4 * i + j] > 255) {
+                        data[4 * i + j] = 255;
+                    }
+                    else if (data[4 * i + j] < 0) {
+                        data[4 * i + j] = 0;
+                    }
+                }
+            }
+            return true;
+        }
+        else {
+            ClearToBlack();
+            return false;
+        }
+
 }// Filter_Edge
 
 
