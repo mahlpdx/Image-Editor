@@ -224,7 +224,7 @@ bool TargaImage::To_Grayscale()
     if (data) {
         for (int i = 0; i < height * width; i++) {
             int gray_value = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-            data[i * 4 + 2] = data[i * 4 + 1] = data[i * 4] = gray_value; //;
+            data[i * 4 + 2] = data[i * 4 + 1] = data[i * 4] = gray_value;
         }
         return true;
     }
@@ -316,10 +316,12 @@ bool TargaImage::Quant_Populosity()
 
         int colors[256];
 
+        // Create vector of 256 most popular colors
         for (int i = 0; i < 256; i++) {
             colors[i] = hist_vec[i].first;
         }
 
+        // Evaluate distance of each pixel from colors in color vector and then reassign pixel voalue to color in color vector
         for (int i = 0; i < height * width; i++) {
             int r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2], min_r, min_g, min_b;
 
@@ -363,6 +365,7 @@ bool TargaImage::Dither_Threshold()
         To_Grayscale();
         vector<pair<float, int>> norm_data = Normalize_Grayscale(data, width * height);
         for (int i = 0; i < norm_data.size(); i++) {
+            // Reassign values based on threshold
             if (norm_data[i].first < 0.5) {
                 data[4*i] = data[4*i + 1] = data[4*i + 2] = 0;
             }
@@ -394,6 +397,7 @@ bool TargaImage::Dither_Random()
         vector<pair<float, int>> norm_data = Normalize_Grayscale(data, width * height);
         for (int i = 0; i < norm_data.size(); i++) {
             float rand_val = 0.4 * (((float)rand() / RAND_MAX) - 0.5);
+            // Reassign values based on where pixel plus random noise is less than threshold
             if (( norm_data[i].first + rand_val ) < 0.5) {
                 data[4 * i] = data[4 * i + 1] = data[4 * i + 2] = 0;
             }
@@ -436,15 +440,18 @@ bool TargaImage::Dither_Bright()
 {
     if (data) {
         To_Grayscale();
+        // Get grayscale values between 0 and 1
+        // In our image the same pixel is represented 3 times for R G B but in the norm data it is 1 val per pixel for simplicity
         vector<pair<float, int>> norm_data = Normalize_Grayscale(data, width * height);
 
+        // Determine the average intensity in the image
         float running_sum = 0, average_intensity;
         for (auto x : norm_data) {
             running_sum += x.first;
         }
         average_intensity = running_sum / norm_data.size();
 
-        // Sort pixels and populate the top average_intensity % with 1
+        // Sort pixels and populate the top average_intensity % with 1 and rest with 0
         sort(norm_data.begin(), norm_data.end(), &compare_by_value);
 
         for (int i = 0; i < norm_data.size(); i++) {
@@ -477,6 +484,7 @@ bool TargaImage::Dither_Cluster()
         {0.5000, 0.8125, 0.9375, 0.1250 },
         {0.1875, 0.5625, 0.3125, 0.6875 },
     };
+
     if (data) {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
@@ -733,17 +741,19 @@ bool TargaImage::Filter_5x5(float filter[5][5]){
                         else {
                             width_idx = j + l;
                         }
-
+                        // Determine new pixel values for R G B
                         sum_r += data[(height_idx * width + width_idx) * 4] * filter[k + 2][l + 2];
                         sum_g += data[(height_idx * width + width_idx) * 4 + 1] * filter[k + 2][l + 2];
                         sum_b += data[(height_idx * width + width_idx) * 4 + 2] * filter[k + 2][l + 2];
                     }
                 }
+                // Assign new pixel values to temp data structure
                 tmp[(i * width + j) * 4] = (unsigned char) round(sum_r);
                 tmp[(i * width + j) * 4 + 1] = (unsigned char) round(sum_g);
                 tmp[(i * width + j) * 4 + 2] = (unsigned char) round(sum_b);
             }
         }
+        // Assign new pixels back from tmp to data 
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                     data[(i * width + j) * 4] = tmp[(i * width + j) * 4];
